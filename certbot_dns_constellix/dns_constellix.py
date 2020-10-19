@@ -1,7 +1,10 @@
-"""DNS Authenticator for ISPConfig."""
+"""DNS Authenticator for Constellix."""
 import json
 import logging
 import time
+import hmac
+import hashlib
+from base64 import b64encode
 
 import requests
 import zope.interface
@@ -75,7 +78,7 @@ class _ConstellixClient(object):
     Encapsulates all communication with the Constellix DNS REST API.
     """
 
-    def __init__(self, endpoint, username, password):
+    def __init__(self, endpoint, apikey, secretkey):
         logger.debug("creating constellixclient")
         self.endpoint = endpoint
         self.apikey = apikey
@@ -94,7 +97,7 @@ class _ConstellixClient(object):
         logger.debug("generating securitytoken for request")
         now = self._current_time()
         hmac_hash = self._hmac_hash(now)
-        session.headers.update({
+        self.session.headers.update({
             'x-cnsdns-hmac': b64encode(hmac_hash),
             'x-cnsdns-requestDate': now
         })
@@ -103,25 +106,13 @@ class _ConstellixClient(object):
         url = self._get_url(action)
         self._updatesecurityheaders()
         resp = self.session.request(method, url, json=data)
-        logger.debug("API Request to URL: %s", url)
-        if resp.status_code != 200:
-            raise errors.PluginError(
-                "HTTP Error during login {0}".format(resp.status_code)
-            )
+        logger.debug("API Request to URL: %s %s", method, url)
         try:
             result = resp.json()
         except:
-            raise errors.PluginError(
-                "API response with non JSON: {0}".format(resp.text)
-            )
-        if result["code"] == "ok":
-            return result["response"]
-        elif result["code"] == "remote_fault":
-            raise errors.PluginError(
-                "API response with an error: {0}".format(result["message"])
-            )
-        else:
             raise errors.PluginError("API response unknown {0}".format(resp.text))
+        else:
+            return resp.status_code, result
 
     def _get_url(self, action):
         return "{0}/{1}".format(self.endpoint, action)
@@ -184,9 +175,8 @@ class _ConstellixClient(object):
         )
         record = self.get_existing_txt(zone_id, record_name, record_content)
         if record is not None:
-            if record["data"] == record_content:
-                logger.debug("delete TXT record: %s", record["id"])
-                self._delete_txt_record(zone_id, record["id"])
+            logger.debug("delete TXT record: %s", record["id"])
+            self._delete_txt_record(zone_id, record["id"])
 
     def _prepare_data(self, record_name, record_content, record_ttl):
         return {
@@ -202,7 +192,7 @@ class _ConstellixClient(object):
     def _insert_txt_record(self, zone_id, record_name, record_content, record_ttl):
         data = self._prepare_data(record_name, record_content, record_ttl)
         logger.debug("insert with data: %s", data)
-        result = self._api_request("POST", "domains/{0}/records/txt".format(zone_id), data)
+        status_code, result = self._api_request("POST", "domains/{0}/records/txt".format(zone_id), data)
 
     def _update_txt_record(
         self, zone_id, primary_id, record_name, record_content, record_ttl
@@ -210,11 +200,11 @@ class _ConstellixClient(object):
         data = self._prepare_data(record_name, record_content, record_ttl)
         data["primary_id"] = primary_id
         logger.debug("update with data: %s", data)
-        result = self._api_request("PUT", "domains/{0}/records/txt/{1}".format(zone_id, record_id), data)
+        status_code, result = self._api_request("PUT", "domains/{0}/records/txt/{1}".format(zone_id, record_id), data)
 
     def _delete_txt_record(self, zone_id, record_id):
         logger.debug("delete record id: %s", record_id)
-        result = self._api_request("DELETE", "domains/{0}/records/txt/{1}".format(zone_id, record_id)
+        status_code, result = self._api_request("DELETE", "domains/{0}/records/txt/{1}".format(zone_id, record_id), {})
 
     def _find_managed_zone_id(self, domain, record_name):
         """
@@ -232,9 +222,9 @@ class _ConstellixClient(object):
             # get the zone id
             try:
                 logger.debug("looking for zone: %s", zone_name)
-                result = self._api_request("GET", "domains/search?exact={0}".format(zone_name))
-                if len(result) > 0:
-                    return result[0].id, result[0].name
+                status_code, result = self._api_request("GET", "domains/search?exact={0}".format(zone_name), {})
+                if status_code == 200 and len(result) > 0:
+                    return result[0]['id'], result[0]['name']
             except errors.PluginError as e:
                 pass
         return None
@@ -253,12 +243,14 @@ class _ConstellixClient(object):
         :rtype: `string` or `None`
 
         """
-        records = self._api_request("GET", "domains/{0}}/records/txt/search?exact={1}".format(zone_id, record_name))
+        status_code, records = self._api_request("GET", "domains/{0}/records/txt/search?exact={1}".format(zone_id, record_name), {})
+        if not status_code == 200:
+            return None
         for record in records:
-            data = self._api_request("GET", "domains/{0}/records/txt/{1}".format(zone_id, record.id))
+            status_code, data = self._api_request("GET", "domains/{0}/records/txt/{1}".format(zone_id, record["id"]), {})
             fullvalue = ""
-            for value in data.value:
-                fullvalue += value.value
+            for value in data['value']:
+                fullvalue += value["value"].strip('"')
             if fullvalue == record_content:
                 return data
         return None
