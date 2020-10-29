@@ -22,9 +22,9 @@ These will need to be added to a file, eg. `constellix.ini` in the following
 format:
 
 ```
-constellix_dns_apikey=5fb4e76f-ac91-43e5-af86-f982458bc595
-constellix_dns_secretkey=47d99fd0-32e7-4e07-88f6-85b46d08e70b
-constellix_dns_endpoint=https://api.dns.constellix.com
+certbot_dns_constellix:constellix_dns_apikey=5fb4e76f-ac91-43e5-f982458bc595
+certbot_dns_constellix:constellix_dns_secretkey=47d99fd0-32e7-4e07-85b46d08e70b
+certbot_dns_constellix:constellix_dns_endpoint=https://api.dns.constellix.com
 ```
 
 ### Caution
@@ -41,8 +41,8 @@ plugin in the certbot command and the location of the credentials file.
 
 ```
 certbot certonly \
-    --dns-constellix \
-    --dns-constellix-credentials=~./secrets/certbot/constellix.ini \
+    --certbot-dns-constellix:dns-constellix \
+    --certbot-dns-constellix:dns-constellix-credentials=~./constellix.ini \
     -d example.com
 ```
 
