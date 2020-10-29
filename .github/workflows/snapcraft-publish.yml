@@ -1,7 +1,6 @@
 name: Publish to Snapcraft
 
 on:
-  workflow_dispatch:
   release:
     types: [created]
     
