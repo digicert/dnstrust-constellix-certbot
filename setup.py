@@ -25,7 +25,7 @@ setup(
     description="Constellix DNS Authenticator plugin for Certbot",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/mintopia/certbot-dns-constellix",
+    url="https://github.com/Constellix/certbot-constellix",
     author="Jessica Smith",
     author_email="jsmith@constellix.com",
     license="Apache License 2.0",
