@@ -27,7 +27,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/Constellix/certbot-constellix",
     author="Jessica Smith",
-    author_email="jsmith@constellix.com",
+    author_email="jsmith@tiggee.com",
     license="Apache License 2.0",
     python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*",
     classifiers=[
