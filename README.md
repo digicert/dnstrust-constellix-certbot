@@ -28,10 +28,10 @@ The plugin requires an API key and secret key for the Constellix DNS API. The ke
 
 These will need to be added to a file, eg. `constellix.ini` in the following format:
 
-```certbot_dns_constellix:constellix_dns_apikey=5fb4e76f-ac91-43e5-f982458bc595
-constellix_dns_apikey=5fb4e76f-ac91-43e5-f982458bc595
-constellix_dns_secretkey=47d99fd0-32e7-4e07-85b46d08e70b
-constellix_dns_endpoint=https://api.dns.constellix.com/v1
+```
+dns_constellix_apikey=5fb4e76f-ac91-43e5-f982458bc595
+dns_constellix_secretkey=47d99fd0-32e7-4e07-85b46d08e70b
+dns_constellix_endpoint=https://api.dns.constellix.com/v1
 ```
 
 #### Caution
@@ -44,7 +44,7 @@ Once the plugin is installed and configured it can be used by specifying the plu
 
 ```
 certbot certonly \
-    --dns-constellix \
+    --authenticator=dns-constellix \
     --dns-constellix-credentials=~./constellix.ini \
     -d example.com
 ```
@@ -71,10 +71,10 @@ The plugin requires an API key and secret key for the Constellix DNS API. The ke
 
 These will need to be added to a file, eg. `constellix.ini` in the following format:
 
-```certbot_dns_constellix:constellix_dns_apikey=5fb4e76f-ac91-43e5-f982458bc595
-certbot-dns-constellix:constellix_dns_apikey=5fb4e76f-ac91-43e5-f982458bc595
-certbot-dns-constellix:constellix_dns_secretkey=47d99fd0-32e7-4e07-85b46d08e70b
-certbot-dns-constellix:constellix_dns_endpoint=https://api.dns.constellix.com/v1
+```
+certbot-dns-constellix:dns_constellix_apikey=5fb4e76f-ac91-43e5-f982458bc595
+certbot-dns-constellix:dns_constellix_secretkey=47d99fd0-32e7-4e07-85b46d08e70b
+certbot-dns-constellix:dns_constellix_endpoint=https://api.dns.constellix.com/v1
 ```
 
 The extra `certbot-dns-constellix:` is required due to how older versions of Certbot load plugins.
@@ -89,7 +89,7 @@ Once the plugin is installed and configured it can be used by specifying the plu
 
 ```
 certbot certonly \
-    --certbot-dns-constellix:dns-constellix \
+    --authenticator=certbot-dns-constellix:dns-constellix \
     --certbot-dns-constellix:dns-constellix-credentials=~./constellix.ini \
     -d example.com
 ```
