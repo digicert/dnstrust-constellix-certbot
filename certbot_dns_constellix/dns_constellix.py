@@ -1,5 +1,4 @@
 """DNS Authenticator for Constellix."""
-import json
 import logging
 import time
 import hmac
@@ -7,17 +6,12 @@ import hashlib
 from base64 import b64encode
 
 import requests
-import zope.interface
 
 from certbot import errors
-from certbot import interfaces
 from certbot.plugins import dns_common
 
 logger = logging.getLogger(__name__)
 
-
-@zope.interface.implementer(interfaces.IAuthenticator)
-@zope.interface.provider(interfaces.IPluginFactory)
 class Authenticator(dns_common.DNSAuthenticator):
     """DNS Authenticator for Constellix
 
@@ -227,7 +221,7 @@ class _ConstellixClient(object):
                     return result[0]['id'], result[0]['name']
             except errors.PluginError as e:
                 pass
-        return None
+        return None, None
 
     def get_existing_txt(self, zone_id, record_name, record_content):
         """
