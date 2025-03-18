@@ -134,19 +134,38 @@ class _ConstellixClient(object):
         logger.debug(
             "using record_name: %s from original: %s", record_name, o_record_name
         )
-        record = self.get_existing_txt(zone_id, record_name, record_content)
-        if record is not None:
-            if record["data"] == record_content:
-                logger.info("already there, id {0}".format(record["id"]))
-                return
-            else:
-                logger.info("update {0}".format(record["id"]))
-                self._update_txt_record(
-                    zone_id, record["id"], record_name, record_content, record_ttl
-                )
-        else:
+
+        # Fetch all records matching the name
+        records = self.get_existing_txt(zone_id, record_name)
+
+        # No records found, just add it
+        if not records:
             logger.info("insert new txt record")
             self._insert_txt_record(zone_id, record_name, record_content, record_ttl)
+            return
+
+        # Try and identify a record matching our current value
+        vals = []
+        for record in records:
+            if not record["value"]:
+                continue
+
+            for value in record["value"]:
+                vals.append(value["value"])
+                if value["value"] == record_content:
+                    logger.info("already there, id {0}".format(record["id"]))
+                    return
+
+        # Use our first record for this
+        record = records[0]
+
+        # We have existing records but they don't match the value we need, we need to update it to
+        # add the value we need.
+        logger.info("update {0}".format(record["id"]))
+        vals.append(record_content)
+        self._update_txt_record(
+            zone_id, record["id"], record_name, vals, record_ttl
+        )
 
     def del_txt_record(self, domain, record_name, record_content, record_ttl):
         """
@@ -154,7 +173,7 @@ class _ConstellixClient(object):
 
         :param str domain: The domain to use to look up the managed zone.
         :param str record_name: The record name (typically beginning with '_acme-challenge.').
-        :param str record_content: The record content (typically the challenge validation).
+        :param str[] record_content: The record content (typically the challenge validation).
         :param int record_ttl: The record TTL (number of seconds that the record may be cached).
         :raises certbot.errors.PluginError: if an error occurs communicating with the Constellix DNS API
         """
@@ -167,24 +186,25 @@ class _ConstellixClient(object):
         logger.debug(
             "using record_name: %s from original: %s", record_name, o_record_name
         )
-        record = self.get_existing_txt(zone_id, record_name, record_content)
-        if record is not None:
+        records = self.get_existing_txt(zone_id, record_name)
+        for record in records:
             logger.debug("delete TXT record: %s", record["id"])
             self._delete_txt_record(zone_id, record["id"])
 
-    def _prepare_data(self, record_name, record_content, record_ttl):
+    def _prepare_data(self, record_name, record_contents, record_ttl):
+        value = []
+        for content in record_contents:
+            value.append({
+                "value": content
+            })
         return {
             "name": record_name,
             "ttl": record_ttl,
-            "roundRobin": [
-                {
-                    "value": record_content
-                }
-            ]
+            "roundRobin": value
         }
 
     def _insert_txt_record(self, zone_id, record_name, record_content, record_ttl):
-        data = self._prepare_data(record_name, record_content, record_ttl)
+        data = self._prepare_data(record_name, [record_content], record_ttl)
         logger.debug("insert with data: %s", data)
         status_code, result = self._api_request("POST", "domains/{0}/records/txt".format(zone_id), data)
 
@@ -193,8 +213,8 @@ class _ConstellixClient(object):
     ):
         data = self._prepare_data(record_name, record_content, record_ttl)
         data["primary_id"] = primary_id
-        logger.debug("update with data: %s", data)
-        status_code, result = self._api_request("PUT", "domains/{0}/records/txt/{1}".format(zone_id, record_id), data)
+        logger.debug("update with data: %s", [data])
+        status_code, result = self._api_request("PUT", "domains/{0}/records/txt/{1}".format(zone_id, primary_id), data)
 
     def _delete_txt_record(self, zone_id, record_id):
         logger.debug("delete record id: %s", record_id)
@@ -223,7 +243,7 @@ class _ConstellixClient(object):
                 pass
         return None, None
 
-    def get_existing_txt(self, zone_id, record_name, record_content):
+    def get_existing_txt(self, zone_id, record_name):
         """
         Get existing TXT records for the record name.
 
@@ -234,17 +254,15 @@ class _ConstellixClient(object):
         :param str record_name: The record name (typically beginning with '_acme-challenge.').
 
         :returns: TXT record value or None
-        :rtype: `string` or `None`
+        :rtype: `list`
 
         """
-        status_code, records = self._api_request("GET", "domains/{0}/records/txt/search?exact={1}".format(zone_id, record_name), {})
+        status_code, record_ids = self._api_request("GET", "domains/{0}/records/txt/search?exact={1}".format(zone_id, record_name), {})
         if not status_code == 200:
-            return None
-        for record in records:
-            status_code, data = self._api_request("GET", "domains/{0}/records/txt/{1}".format(zone_id, record["id"]), {})
-            fullvalue = ""
-            for value in data['value']:
-                fullvalue += value["value"].strip('"')
-            if fullvalue == record_content:
-                return data
-        return None
+            return []
+        records = []
+        for id in record_ids:
+            status, record = self._api_request("GET", "domains/{0}/records/txt/{1}".format(zone_id, id["id"]), {})
+            if status_code == 200:
+                records.append(record)
+        return records
